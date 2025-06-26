@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>CryptoTrader AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/js/all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-[#12182b] text-[#cbd5e1] min-h-screen flex justify-center p-4">
+  <div id="spinner" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="w-8 h-8 border-4 border-t-transparent border-[#6c63ff] rounded-full animate-spin"></div>
+  </div>
+
+  <div class="max-w-5xl w-full space-y-6">
+    <!-- Header -->
+    <header class="flex items-center space-x-3 bg-[#1a203e] rounded-t-md px-4 py-2 relative">
+      <div class="w-7 h-7 rounded-full bg-[#6c63ff] flex items-center justify-center">
+        <i class="fas fa-chart-bar text-white text-sm"></i>
+      </div>
+      <div>
+        <h1 class="text-white font-semibold text-sm leading-5">CryptoTrader AI</h1>
+        <p class="text-[#94a3b8] text-xs leading-4">By PT Authentic Media Services</p>
+      </div>
+      <div class="absolute right-4 top-2 flex items-center space-x-3 text-xs font-semibold">
+        <div class="flex items-center space-x-1 text-[#22c55e]">
+          <span class="w-2 h-2 rounded-full bg-[#22c55e] block"></span>
+          <span>Market Open</span>
+        </div>
+        <div class="flex items-center space-x-1 text-[#60a5fa]">
+          <i class="fas fa-sync-alt"></i>
+          <span>Real-time Data</span>
+        </div>
+        <div class="flex items-center space-x-1 text-[#a78bfa]">
+          <i class="fas fa-robot"></i>
+          <span>AI Analysis</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Market Analysis -->
+    <section class="space-y-2">
+        <div class="mb-4">
+    <div class="bg-[#fbbf24] text-[#78350f] px-4 py-2 rounded shadow text-xs flex items-center gap-2 justify-center">
+      <i class="fas fa-exclamation-triangle"></i>
+      Data, analisis, dan saran AI di aplikasi ini tidak sepenuhnya akurat dan bukan merupakan nasihat keuangan resmi.
+    </div>
+  </div>
+      <h2 class="text-white font-semibold text-sm">Market Analysis</h2>
+      <div class="bg-[#1a203e] rounded-md p-4 pb-[50px] space-y-4">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
+          <div class="flex items-center space-x-4">
+            <select id="coinSelect" onchange="loadChartData()" class="bg-[#2a3153] text-[#94a3b8] text-xs rounded-md px-3 py-1 focus:outline-none">
+              <option value="bitcoin">Bitcoin (BTC)</option>
+              <option value="ethereum">Ethereum (ETH)</option>
+              <option value="solana">Solana (SOL)</option>
+            </select>
+            <div class="flex items-center space-x-2 text-white font-semibold text-lg">
+              <span id="currentPrice">$0.00</span>
+              <span id="priceChange" class="bg-[#22c55e] text-[10px] font-semibold rounded px-1.5 py-0.5 flex items-center gap-1">
+                <i class="fas fa-arrow-up"></i> +0%
+              </span>
+            </div>
+          </div>
+          <div class="flex justify-end">
+            <select id="chartType" onchange="loadChartData()" class="bg-[#2a3153] text-[#94a3b8] text-xs rounded-md px-2 py-1">
+              <option value="line">coingecko</option>
+              <option value="candlestick">TradingView</option>
+              <option value="binance">Binance</option>
+            </select>
+          </div>
+
+          <div class="flex space-x-2 text-[#94a3b8] text-xs font-semibold">
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="0.04">1H</button>
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="0.17">4H</button>
+            <button class="px-2 py-1 rounded-md bg-[#2a3153] timeframe-btn" data-days="1">1D</button>
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="7">1W</button>
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="30">1M</button>
+          </div>
+        </div>
+
+        <!-- Line Chart Canvas -->
+        <div style="height: 500px;">
+          <canvas id="btcChart"></canvas>
+          <div id="ohlcInfo" class="mt-2 text-xs text-[#94a3b8] font-mono"></div>
+        </div>
+
+        <!-- TradingView Widget -->
+       <div class="tradingview-widget-container hidden" style="height: 500px;">
+       <div id="tradingview_btc" style="height: 100%; width: 100%;"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+          function loadChartData() {
+            const selectedCoin = document.getElementById('coinSelect').value;
+            let symbol;
+
+            // Mapping value dari select ke simbol TradingView
+            switch (selectedCoin) {
+              case 'bitcoin':
+                symbol = 'BINANCE:BTCUSDT';
+                break;
+              case 'ethereum':
+                symbol = 'BINANCE:ETHUSDT';
+                break;
+              case 'solana':
+                symbol = 'BINANCE:SOLUSDT';
+                break;
+              default:
+                symbol = 'BINANCE:BTCUSDT';
+            }
+
+            // Hapus widget lama
+            document.getElementById('tradingview_btc').innerHTML = '';
+
+            // Buat widget baru
+            new TradingView.widget({
+              "container_id": "tradingview_btc",
+              "symbol": symbol,
+              "interval": "60",
+              "timezone": "Etc/UTC",
+              "theme": "dark",
+              "style": "1",
+              "locale": "en",
+              "toolbar_bg": "#1a203e",
+              "enable_publishing": false,
+              "withdateranges": true,
+              "hide_side_toolbar": false,
+              "allow_symbol_change": true,
+              "studies": [],
+              "autosize": true
+            });
+          }
+
+          // Inisialisasi chart saat halaman pertama kali dibuka
+          window.onload = loadChartData;
+        </script>
+        
+        </div>
+      </div>
+    </section>
+
+    <!-- AI Chat Assistant -->
+    <section class="space-y-2">
+      <div class="flex justify-between items-center">
+        <div>
+          <h2 class="text-white font-semibold text-sm">AI Trading Assistant</h2>
+          <p class="text-[#94a3b8] text-xs">Ask the assistant about market trends</p>
+        </div>
+        <div class="text-[#94a3b8] text-[10px] text-right">
+          <span>Powered by</span><br>
+          <span class="font-semibold text-white">OpenAI</span>
+        </div>
+      </div>
+      <div class="bg-[#1a203e] rounded-md p-4">
+        <div id="chat-box" class="space-y-2 max-h-64 overflow-y-auto mb-2 text-xs flex flex-col"></div>
+        <form id="chat-form" class="flex items-center space-x-2">
+          <input class="flex-grow bg-[#2a3153] rounded-md px-3 py-2 text-xs text-[#94a3b8]" placeholder="Ask about BTC trends..." type="text"/>
+          <button type="submit" class="text-[#94a3b8] hover:text-white"><i class="fas fa-paper-plane"></i></button>
+        </form>
+      </div>
+    </section>
+
+      <!-- Footer Credit -->
+  <footer class="w-full max-w-5xl mx-auto mt-8 text-center text-xs text-[#64748b] py-4">
+    &copy; 2024 PT Authentic Media Services. All rights reserved.
+  </footer>
+
+  </div>
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+  <script>
+    const ctx = document.getElementById("btcChart").getContext("2d");
+    let chart;
+    let currentDays = "1";
+
+    function setActiveTimeframe(btn) {
+      document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('bg-[#2a3153]'));
+      btn.classList.add('bg-[#2a3153]');
+    }
+
+    async function loadChartData() {
+      const chartType = document.getElementById("chartType").value;
+      const selectedCoin = document.getElementById("coinSelect").value;
+      const canvas = document.getElementById("btcChart");
+      const ohlcInfo = document.getElementById("ohlcInfo");
+      const tradingView = document.querySelector(".tradingview-widget-container");
+      const spinner = document.getElementById("spinner");
+      const currentPriceEl = document.getElementById("currentPrice");
+      const priceChangeEl = document.getElementById("priceChange");
+
+      async function fetchFromBinance(coinSymbol, interval = '1h', limit = 100) {
+      const symbol = coinSymbol.toUpperCase() + 'USDT';
+      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data.map(d => ({
+        time: d[0],
+        open: parseFloat(d[1]),
+        high: parseFloat(d[2]),
+        low: parseFloat(d[3]),
+        close: parseFloat(d[4])
+      }));
+    }
+
+      if (chartType === "binance") {
+      canvas.parentElement.style.display = "block";
+      ohlcInfo.style.display = "block";
+      tradingView.style.display = "none";
+
+      spinner.classList.remove("hidden");
+
+      try {
+        const coinSymbol = selectedCoin === "bitcoin" ? "BTC" :
+                          selectedCoin === "ethereum" ? "ETH" :
+                          selectedCoin === "solana" ? "SOL" : "BTC";
+
+        const interval = currentDays <= 1 ? '1h' : currentDays <= 7 ? '4h' : '1d';
+        const data = await fetchFromBinance(coinSymbol, interval);
+
+        const prices = data.map(d => d.close);
+        const times = data.map(d => new Date(d.time).toLocaleString());
+
+        currentPriceEl.textContent = `$${prices[prices.length - 1].toLocaleString()}`;
+
+        const change = ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100;
+        const isPositive = change >= 0;
+        priceChangeEl.className = `text-[10px] font-semibold rounded px-1.5 py-0.5 flex items-center gap-1 ${isPositive ? "bg-[#22c55e]" : "bg-[#ef4444]"}`;
+        priceChangeEl.innerHTML = `<i class="fas ${isPositive ? "fa-arrow-up" : "fa-arrow-down"}"></i> ${isPositive ? "+" : ""}${change.toFixed(2)}%`;
+
+        if (chart) chart.destroy();
+
+        chart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: times,
+            datasets: [{
+              label: `${coinSymbol} Price`,
+              data: prices,
+              borderColor: isPositive ? "#22c55e" : "#ef4444",
+              backgroundColor: isPositive ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+              tension: 0.3,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { display: false },
+              y: {
+                ticks: { callback: val => "$" + val.toLocaleString(), color: "#94a3b8" },
+                grid: { color: "#2a3153" }
+              }
+            },
+            plugins: { legend: { display: false } }
+          }
+        });
+
+        const last = data[data.length - 1];
+        ohlcInfo.innerHTML = `Price: $${last.close} | O: $${last.open} H: $${last.high} L: $${last.low} C: $${last.close}`;
+      } catch (err) {
+        console.error("Error loading Binance data:", err);
+      } finally {
+        spinner.classList.add("hidden");
+      }
+      return;
+    }
+
+
+      if (chartType === "line") {
+        canvas.parentElement.style.display = "block";
+        ohlcInfo.style.display = "block";
+        tradingView.style.display = "none";
+      } else {
+        canvas.parentElement.style.display = "none";
+        ohlcInfo.style.display = "none";
+        tradingView.style.display = "block";
+        return;
+      }
+
+      spinner.classList.remove("hidden");
+
+      try {
+        const res = await fetch(`/api/chart-data?coin=${selectedCoin}&days=${currentDays}`);
+        const data = await res.json();
+
+        currentPriceEl.textContent = `$${parseFloat(data.currentPrice).toLocaleString()}`;
+        const change = parseFloat(data.changePercent).toFixed(2);
+        const isPositive = change >= 0;
+        priceChangeEl.className = `text-[10px] font-semibold rounded px-1.5 py-0.5 flex items-center gap-1 ${isPositive ? "bg-[#22c55e]" : "bg-[#ef4444]"}`;
+        priceChangeEl.innerHTML = `<i class="fas ${isPositive ? "fa-arrow-up" : "fa-arrow-down"}"></i> ${isPositive ? "+" : ""}${change}%`;
+
+        if (chart) chart.destroy();
+
+        const chartData = {
+          labels: data.times,
+          datasets: [{
+            label: `${selectedCoin.toUpperCase()} Price`,
+            data: data.prices,
+            borderColor: isPositive ? "#22c55e" : "#ef4444",
+            backgroundColor: isPositive ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+            tension: 0.3,
+            fill: true,
+          }]
+        };
+
+        const chartOptions = {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { display: false },
+            y: {
+              ticks: { callback: val => "$" + val.toLocaleString(), color: "#94a3b8" },
+              grid: { color: "#2a3153" },
+            }
+          },
+          plugins: { legend: { display: false } }
+        };
+
+        chart = new Chart(ctx, { type: "line", data: chartData, options: chartOptions });
+
+        const last = data.ohlc[data.ohlc.length - 1];
+         ohlcInfo.innerHTML = `Price: $${last.c} | O: $${last.o} H: $${last.h} L: $${last.l} C: $${last.c}`;
+      } catch (err) {
+        console.error("Error loading chart:", err);
+      } finally {
+        spinner.classList.add("hidden");
+      }
+    }
+
+    document.querySelectorAll('.timeframe-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        currentDays = this.dataset.days;
+        setActiveTimeframe(this);
+        loadChartData();
+      });
+    });
+
+    loadChartData();
+    setInterval(loadChartData, 30000);
+  </script>
+
+  <script>
+    const form = document.getElementById("chat-form");
+    const input = form.querySelector("input");
+    const chatBox = document.getElementById("chat-box");
+
+    function appendMessage(sender, text) {
+      const msg = document.createElement("div");
+      msg.className = `p-2 rounded-md max-w-xs whitespace-pre-wrap ${sender === "user" ? "bg-[#334155] text-white self-end ml-auto" : "bg-[#2a3153] text-[#94a3b8] self-start"}`;
+      msg.textContent = text;
+      chatBox.appendChild(msg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+
+      appendMessage("user", message);
+      input.value = "";
+
+      const loading = document.createElement("div");
+      loading.className = "text-[#64748b] italic text-xs self-start";
+      loading.textContent = "AI is typing...";
+      chatBox.appendChild(loading);
+
+      try {
+        const coin = document.getElementById("coinSelect").value;
+        const timeframe = currentDays;
+        const price = document.getElementById("currentPrice").textContent;
+        const ohlc = document.getElementById("ohlcInfo").textContent;
+
+        const res = await fetch("/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message,
+            context: {
+              coin,
+              timeframe,
+              price,
+              ohlc
+            }
+          })
+        });
+        const data = await res.json();
+        loading.remove();
+        appendMessage("ai", data.reply || "Sorry, no response.");
+      } catch (err) {
+        loading.remove();
+        appendMessage("ai", "Error: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

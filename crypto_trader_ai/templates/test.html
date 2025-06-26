@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>CryptoTrader AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/js/all.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-[#12182b] text-[#cbd5e1] min-h-screen flex justify-center p-4">
+  <!-- Spinner -->
+<div id="spinner" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+  <div class="w-8 h-8 border-4 border-t-transparent border-[#6c63ff] rounded-full animate-spin"></div>
+</div>
+
+  <div class="max-w-5xl w-full space-y-6">
+    <!-- Header -->
+    <header class="flex items-center space-x-3 bg-[#1a203e] rounded-t-md px-4 py-2 relative">
+    <div class="w-7 h-7 rounded-full bg-[#6c63ff] flex items-center justify-center">
+     <i class="fas fa-chart-bar text-white text-sm">
+     </i>
+    </div>
+    <div>
+     <h1 class="text-white font-semibold text-sm leading-5">
+      CryptoTrader AI
+     </h1>
+     <p class="text-[#94a3b8] text-xs leading-4">
+      By PT Authentic Media Services
+     </p>
+    </div>
+    <div class="absolute right-4 top-2 flex items-center space-x-3 text-xs font-semibold">
+     <div class="flex items-center space-x-1 text-[#22c55e]">
+      <span class="w-2 h-2 rounded-full bg-[#22c55e] block">
+      </span>
+      <span>
+       Market Open
+      </span>
+     </div>
+     <div class="flex items-center space-x-1 text-[#60a5fa]">
+      <i class="fas fa-sync-alt">
+      </i>
+      <span>
+       Real-time Data
+      </span>
+     </div>
+     <div class="flex items-center space-x-1 text-[#a78bfa]">
+      <i class="fas fa-robot">
+      </i>
+      <span>
+       AI Analysis
+      </span>
+     </div>
+    </div>
+    </header> 
+    <!-- Market Analysis Section -->
+    <section class="space-y-2">
+      <h2 class="text-white font-semibold text-sm">Market Analysis</h2>
+      <div class="bg-[#1a203e] rounded-md p-4 pb-[50px] space-y-4">
+
+        <!-- Top Row: Select + Price on left, Timeframe buttons on right -->
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
+          <!-- Left: Dropdown + Price -->
+          <div class="flex items-center space-x-4">
+            <select id="coinSelect" onchange="loadChartData()" aria-label="Select cryptocurrency"
+              class="bg-[#2a3153] text-[#94a3b8] text-xs rounded-md px-3 py-1 focus:outline-none">
+              <option value="bitcoin">Bitcoin (BTC)</option>
+              <option value="ethereum">Ethereum (ETH)</option>
+              <option value="solana">Solana (SOL)</option>
+            </select>
+
+            <div class="flex items-center space-x-2 text-white font-semibold text-lg">
+              <span id="currentPrice">$44,983.38</span>
+              <span id="priceChange"
+                class="bg-[#22c55e] text-[10px] font-semibold rounded px-1.5 py-0.5 flex items-center gap-1">
+                <i class="fas fa-arrow-up"></i> +0.94%
+              </span>
+            </div>
+          </div>
+
+          <select id="chartType" onchange="loadChartData()" class="bg-[#2a3153] text-[#94a3b8] text-xs rounded-md px-2 py-1">
+            <option value="line">Line</option>
+            <option value="candlestick">Candlestick</option>
+          </select>
+
+          <!-- Right: Timeframe Buttons -->
+          <div class="flex space-x-2 text-[#94a3b8] text-xs font-semibold">
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="0.04">1H</button>
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="0.17">4H</button>
+            <button class="px-2 py-1 rounded-md bg-[#2a3153] timeframe-btn" data-days="1">1D</button>
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="7">1W</button>
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="30">1M</button>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div style="height: 500px;">
+          <canvas id="btcChart"></canvas>
+          <div id="ohlcInfo" class="mt-2 text-xs text-[#94a3b8] font-mono"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- AI Trading Assistant -->
+    <section class="space-y-2">
+      <h2 class="text-white font-semibold text-sm">AI Trading Assistant</h2>
+      <p class="text-[#94a3b8] text-xs">Ask the assistant about market trends</p>
+      <div class="bg-[#1a203e] rounded-md p-4">
+        <div id="chat-box" class="space-y-2 max-h-64 overflow-y-auto mb-2 text-xs flex flex-col"></div>
+        <form id="chat-form" class="flex items-center space-x-2">
+          <input class="flex-grow bg-[#2a3153] rounded-md px-3 py-2 text-xs text-[#94a3b8] placeholder:text-[#64748b]" placeholder="Ask about BTC trends..." type="text"/>
+          <button type="submit" class="text-[#94a3b8] hover:text-white"><i class="fas fa-paper-plane"></i></button>
+        </form>
+      </div>
+    </section>
+  </div>
+
+<script>
+  const ctx = document.getElementById("btcChart").getContext("2d");
+  let chart;
+  let currentDays = "1";
+
+  // Mock data for demonstration since we don't have the Flask backend
+  const mockData = {
+    bitcoin: {
+      currentPrice: 44983.38,
+      changePercent: 0.94,
+      times: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+      prices: [44500, 44700, 44600, 44800, 44900, 44750, 44850, 44983.38],
+      ohlc: [
+        { x: '2024-01-01T09:00:00', o: 44500, h: 44600, l: 44450, c: 44550 },
+        { x: '2024-01-01T10:00:00', o: 44550, h: 44750, l: 44500, c: 44700 },
+        { x: '2024-01-01T11:00:00', o: 44700, h: 44720, l: 44580, c: 44600 },
+        { x: '2024-01-01T12:00:00', o: 44600, h: 44850, l: 44600, c: 44800 },
+        { x: '2024-01-01T13:00:00', o: 44800, h: 44950, l: 44780, c: 44900 },
+        { x: '2024-01-01T14:00:00', o: 44900, h: 44920, l: 44720, c: 44750 },
+        { x: '2024-01-01T15:00:00', o: 44750, h: 44880, l: 44730, c: 44850 },
+        { x: '2024-01-01T16:00:00', o: 44850, h: 45000, l: 44800, c: 44983.38 }
+      ]
+    },
+    ethereum: {
+      currentPrice: 2834.56,
+      changePercent: 1.23,
+      times: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+      prices: [2800, 2820, 2810, 2825, 2830, 2815, 2828, 2834.56],
+      ohlc: [
+        { x: '2024-01-01T09:00:00', o: 2800, h: 2815, l: 2795, c: 2810 },
+        { x: '2024-01-01T10:00:00', o: 2810, h: 2825, l: 2805, c: 2820 },
+        { x: '2024-01-01T11:00:00', o: 2820, h: 2822, l: 2808, c: 2810 },
+        { x: '2024-01-01T12:00:00', o: 2810, h: 2830, l: 2810, c: 2825 },
+        { x: '2024-01-01T13:00:00', o: 2825, h: 2835, l: 2822, c: 2830 },
+        { x: '2024-01-01T14:00:00', o: 2830, h: 2832, l: 2812, c: 2815 },
+        { x: '2024-01-01T15:00:00', o: 2815, h: 2830, l: 2814, c: 2828 },
+        { x: '2024-01-01T16:00:00', o: 2828, h: 2840, l: 2825, c: 2834.56 }
+      ]
+    },
+    solana: {
+      currentPrice: 98.45,
+      changePercent: -0.56,
+      times: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+      prices: [99.2, 99.1, 98.8, 98.9, 99.0, 98.7, 98.6, 98.45],
+      ohlc: [
+        { x: '2024-01-01T09:00:00', o: 99.2, h: 99.3, l: 99.0, c: 99.1 },
+        { x: '2024-01-01T10:00:00', o: 99.1, h: 99.2, l: 98.9, c: 99.0 },
+        { x: '2024-01-01T11:00:00', o: 99.0, h: 99.1, l: 98.7, c: 98.8 },
+        { x: '2024-01-01T12:00:00', o: 98.8, h: 99.0, l: 98.8, c: 98.9 },
+        { x: '2024-01-01T13:00:00', o: 98.9, h: 99.1, l: 98.8, c: 99.0 },
+        { x: '2024-01-01T14:00:00', o: 99.0, h: 99.0, l: 98.6, c: 98.7 },
+        { x: '2024-01-01T15:00:00', o: 98.7, h: 98.8, l: 98.5, c: 98.6 },
+        { x: '2024-01-01T16:00:00', o: 98.6, h: 98.7, l: 98.4, c: 98.45 }
+      ]
+    }
+  };
+
+  function setActiveTimeframe(btn) {
+    document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('bg-[#2a3153]'));
+    btn.classList.add('bg-[#2a3153]');
+  }
+
+  async function loadChartData() {
+    const selectedCoin = document.getElementById("coinSelect").value;
+    const chartType = document.getElementById("chartType").value;
+    const spinner = document.getElementById("spinner");
+    const currentPriceEl = document.getElementById("currentPrice");
+    const priceChangeEl = document.getElementById("priceChange");
+    const ohlcInfo = document.getElementById("ohlcInfo");
+
+    spinner.classList.remove("hidden");
+
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const data = mockData[selectedCoin];
+
+      currentPriceEl.textContent = `$${parseFloat(data.currentPrice).toLocaleString()}`;
+      const change = parseFloat(data.changePercent).toFixed(2);
+      const isPositive = change >= 0;
+      priceChangeEl.className = `text-[10px] font-semibold rounded px-1.5 py-0.5 flex items-center gap-1 ${isPositive ? "bg-[#22c55e]" : "bg-[#ef4444]"}`;
+      priceChangeEl.innerHTML = `<i class="fas ${isPositive ? "fa-arrow-up" : "fa-arrow-down"}"></i> ${isPositive ? "+" : ""}${change}%`;
+
+      if (chart) chart.destroy();
+
+      const chartData = chartType === "line" ? {
+        labels: data.times,
+        datasets: [
+          {
+            label: `${selectedCoin.toUpperCase()} Price`,
+            data: data.prices,
+            borderColor: isPositive ? "#22c55e" : "#ef4444",
+            backgroundColor: isPositive ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+            tension: 0.3,
+            fill: true,
+          },
+        ],
+      } : {
+        datasets: [
+          {
+            label: `${selectedCoin.toUpperCase()} OHLC`,
+            data: data.ohlc,
+            borderColor: "#94a3b8",
+            color: {
+              up: "#22c55e",
+              down: "#ef4444",
+              unchanged: "#64748b",
+            },
+          },
+        ],
+      };
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: chartType === "line" ? 
+            { 
+              display: true,
+              ticks: { color: "#94a3b8" },
+              grid: { color: "#2a3153" }
+            } : {
+              type: "time",
+              time: {
+                unit: "hour",
+                tooltipFormat: "HH:mm",
+                displayFormats: { hour: "HH:mm" },
+              },
+              ticks: { color: "#94a3b8" },
+              grid: { color: "#2a3153" },
+            },
+          y: {
+            ticks: {
+              callback: (val) => "$" + val.toLocaleString(),
+              color: "#94a3b8",
+            },
+            grid: { color: "#2a3153" },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: '#1a203e',
+            titleColor: '#cbd5e1',
+            bodyColor: '#94a3b8',
+            borderColor: '#2a3153',
+            borderWidth: 1,
+          }
+        },
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        }
+      };
+
+      chart = new Chart(ctx, {
+        type: chartType === "line" ? "line" : "candlestick",
+        data: chartData,
+        options: chartOptions
+      });
+
+      // Show last OHLC info
+      if (chartType === "candlestick" && data.ohlc && data.ohlc.length > 0) {
+        const last = data.ohlc[data.ohlc.length - 1];
+        ohlcInfo.innerHTML = `O: $${last.o} H: $${last.h} L: $${last.l} C: $${last.c}`;
+      } else if (chartType === "line" && data.prices && data.prices.length > 0) {
+        const last = data.prices[data.prices.length - 1];
+        ohlcInfo.innerHTML = `Price: $${last}`;
+      } else {
+        ohlcInfo.innerHTML = '';
+      }
+    } catch (err) {
+      console.error("Error loading chart:", err);
+    } finally {
+      spinner.classList.add("hidden");
+    }
+  }
+
+  // Timeframe button logic
+  document.querySelectorAll('.timeframe-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      currentDays = this.dataset.days;
+      setActiveTimeframe(this);
+      loadChartData();
+    });
+  });
+
+  // Load on start and every 30 seconds
+  loadChartData();
+  setInterval(loadChartData, 30000);
+
+  // Chat functionality
+  const form = document.getElementById("chat-form");
+  const input = form.querySelector("input");
+  const chatBox = document.getElementById("chat-box");
+
+  function appendMessage(sender, text) {
+    const msg = document.createElement("div");
+    msg.className = `p-2 rounded-md max-w-xs whitespace-pre-wrap ${sender === "user" ? "bg-[#334155] text-white self-end ml-auto" : "bg-[#2a3153] text-[#94a3b8] self-start"}`;
+    msg.textContent = text;
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  // AI responses for demo
+  const aiResponses = [
+    "Based on current market trends, I see bullish momentum building.",
+    "The technical indicators suggest a potential breakout above resistance.",
+    "Volume analysis shows increased buying pressure in recent hours.",
+    "RSI levels indicate the asset might be entering overbought territory.",
+    "Support levels are holding strong at current price ranges.",
+    "Market sentiment appears optimistic based on social media trends."
+  ];
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const message = input.value.trim();
+    if (!message) return;
+
+    appendMessage("user", message);
+    input.value = "";
+
+    const loading = document.createElement("div");
+    loading.className = "text-[#64748b] italic text-xs self-start";
+    loading.textContent = "AI is typing...";
+    chatBox.appendChild(loading);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    // Simulate AI response delay
+    setTimeout(() => {
+      loading.remove();
+      const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+      appendMessage("ai", randomResponse);
+    }, 1500);
+  });
+</script>
+
+</body>
+</html>
