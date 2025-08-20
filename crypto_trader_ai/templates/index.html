@@ -10,6 +10,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
     body { font-family: 'Inter', sans-serif; }
+    #image-upload {
+    display: none !important;
+}
   </style>
 </head>
 <body class="bg-[#12182b] text-[#cbd5e1] min-h-screen flex justify-center p-4">
@@ -76,6 +79,7 @@
           </div>
 
           <div class="flex space-x-2 text-[#94a3b8] text-xs font-semibold">
+            <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="0.0007">1m</button>
             <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="0.04">1H</button>
             <button class="px-2 py-1 rounded-md hover:bg-[#2a3153] timeframe-btn" data-days="0.17">4H</button>
             <button class="px-2 py-1 rounded-md bg-[#2a3153] timeframe-btn" data-days="1">1D</button>
@@ -157,11 +161,28 @@
         </div>
       </div>
       <div class="bg-[#1a203e] rounded-md p-4">
-        <div id="chat-box" class="space-y-2 max-h-64 overflow-y-auto mb-2 text-xs flex flex-col"></div>
+        <div class="flex items-center mb-2 gap-2">
+      <label for="chat-select" class="text-xs text-[#94a3b8]">Chat:</label>
+      <select id="chat-select" class="bg-[#2a3153] text-[#94a3b8] text-xs rounded-md px-2 py-1"></select>
+      <button id="new-chat-btn" class="bg-[#6c63ff] text-white text-xs rounded px-2 py-1 ml-2">New Chat</button>
+      <label for="ai-model" class="text-xs text-[#94a3b8] ml-4">Model:</label>
+      <select id="ai-model" class="bg-[#2a3153] text-[#94a3b8] text-xs rounded-md px-2 py-1">
+        <option value="openai">OpenAI</option>
+        <option value="mixtral">Mixtral-8x7b</option>
+        <option value="groq">Groq Cloud (Llama-4 Scout 17B)</option>
+        <option value="groq_vision">Groq Cloud (Llama-4 Vision 17B) - Gambar</option>
+      </select>
+    </div>
+        <div id="chat-box" class="space-y-2 max-h-[900px] overflow-y-auto mb-2 text-base flex flex-col"></div>
         <form id="chat-form" class="flex items-center space-x-2">
           <input class="flex-grow bg-[#2a3153] rounded-md px-3 py-2 text-xs text-[#94a3b8]" placeholder="Ask about BTC trends..." type="text"/>
           <button type="submit" class="text-[#94a3b8] hover:text-white"><i class="fas fa-paper-plane"></i></button>
+          <input id="image-upload" type="file" accept="image/*" class="hidden" />
+          <label id="upload-label" for="image-upload" class="ml-2 cursor-pointer hidden text-[#94a3b8] hover:text-white" title="Upload gambar">
+            <i class="fas fa-upload fa-lg"></i>
+          </label>
         </form>
+        <img id="image-preview" src="" alt="Preview" class="h-10 ml-2 rounded shadow hidden" />
       </div>
     </section>
 
@@ -180,10 +201,23 @@
     const ctx = document.getElementById("btcChart").getContext("2d");
     let chart;
     let currentDays = "1";
+    let binanceIntervalId = null;
 
     function setActiveTimeframe(btn) {
       document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('bg-[#2a3153]'));
       btn.classList.add('bg-[#2a3153]');
+    }
+
+    function getBinanceInterval(days) {
+      switch (days) {
+        case "0.0007": return "1m"; // 1 menit
+        case "0.04": return "1h"; // 1 jam
+        case "0.17": return "4h"; // 4 jam
+        case "1": return "1d";   // 1 hari
+        case "7": return "1w";   // 1 minggu
+        case "30": return "1M";  // 1 bulan
+        default: return "1d";
+      }
     }
 
     async function loadChartData() {
@@ -211,67 +245,165 @@
     }
 
       if (chartType === "binance") {
-      canvas.parentElement.style.display = "block";
-      ohlcInfo.style.display = "block";
-      tradingView.style.display = "none";
+        // Set polling interval to 5 seconds for Binance chart
+        if (binanceIntervalId) clearInterval(binanceIntervalId);
+        binanceIntervalId = setInterval(() => {
+          if (document.getElementById("chartType").value === "binance") loadChartData();
+        }, 5000);
 
-      spinner.classList.remove("hidden");
+        canvas.parentElement.style.display = "block";
+        ohlcInfo.style.display = "block";
+        tradingView.style.display = "none";
 
-      try {
-        const coinSymbol = selectedCoin === "bitcoin" ? "BTC" :
-                          selectedCoin === "ethereum" ? "ETH" :
-                          selectedCoin === "solana" ? "SOL" : "BTC";
+        // Hapus spinner biar chart dinamis tanpa loading
+        spinner.classList.add("hidden");
 
-        const interval = currentDays <= 1 ? '1h' : currentDays <= 7 ? '4h' : '1d';
-        const data = await fetchFromBinance(coinSymbol, interval);
+        try {
+          const coinSymbol = selectedCoin === "bitcoin" ? "BTC" :
+                            selectedCoin === "ethereum" ? "ETH" :
+                            selectedCoin === "solana" ? "SOL" : "BTC";
 
-        const prices = data.map(d => d.close);
-        const times = data.map(d => new Date(d.time).toLocaleString());
+          const interval = getBinanceInterval(currentDays);
+          const data = await fetchFromBinance(coinSymbol, interval);
 
-        currentPriceEl.textContent = `$${prices[prices.length - 1].toLocaleString()}`;
+          const prices = data.map(d => d.close);
+          const times = data.map(d => new Date(d.time));
 
-        const change = ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100;
-        const isPositive = change >= 0;
-        priceChangeEl.className = `text-[10px] font-semibold rounded px-1.5 py-0.5 flex items-center gap-1 ${isPositive ? "bg-[#22c55e]" : "bg-[#ef4444]"}`;
-        priceChangeEl.innerHTML = `<i class="fas ${isPositive ? "fa-arrow-up" : "fa-arrow-down"}"></i> ${isPositive ? "+" : ""}${change.toFixed(2)}%`;
+          currentPriceEl.textContent = `$${prices[prices.length - 1].toLocaleString()}`;
 
-        if (chart) chart.destroy();
+          const change = ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100;
+          const isPositive = change >= 0;
+          priceChangeEl.className = `text-[10px] font-semibold rounded px-1.5 py-0.5 flex items-center gap-1 ${isPositive ? "bg-[#22c55e]" : "bg-[#ef4444]"}`;
+          priceChangeEl.innerHTML = `<i class="fas ${isPositive ? "fa-arrow-up" : "fa-arrow-down"}"></i> ${isPositive ? "+" : ""}${change.toFixed(2)}%`;
 
-        chart = new Chart(ctx, {
-          type: "line",
-          data: {
-            labels: times,
-            datasets: [{
-              label: `${coinSymbol} Price`,
-              data: prices,
-              borderColor: isPositive ? "#22c55e" : "#ef4444",
-              backgroundColor: isPositive ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
-              tension: 0.3,
-              fill: true
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              x: { display: false },
-              y: {
-                ticks: { callback: val => "$" + val.toLocaleString(), color: "#94a3b8" },
-                grid: { color: "#2a3153" }
+          if (chart) chart.destroy();
+
+          // Dynamic x-axis formatting
+          let timeFormat = "";
+          let xUnit = 'hour';
+          let xStepSize = 1;
+          switch (interval) {
+          case "1m":
+            timeFormat = "HH:mm";
+            xUnit = 'minute';
+            xStepSize = 1;
+            break;
+          case "1h":
+            timeFormat = "HH:mm";
+            xUnit = 'hour';
+            xStepSize = 1;
+            break;
+          case "4h":
+            timeFormat = "HH:mm";
+            xUnit = 'hour';
+            xStepSize = 4;
+            break;
+          case "1d":
+            timeFormat = "dd MMM";
+            xUnit = 'day';
+            xStepSize = 1;
+            break;
+          case "1w":
+            timeFormat = "MMM yyyy";
+            xUnit = 'week';
+            xStepSize = 1;
+            break;
+          case "1M":
+            timeFormat = "yyyy";
+            xUnit = 'month';
+            xStepSize = 1;
+            break;
+        }
+
+
+          chart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: times,
+              datasets: [{
+                label: `${coinSymbol} Price`,
+                data: prices,
+                borderColor: isPositive ? "#22c55e" : "#ef4444",
+                backgroundColor: isPositive ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                tension: 0.3,
+                fill: true,
+                pointRadius: 0
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              interaction: { mode: 'index', intersect: false },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  enabled: true,
+                  callbacks: {
+                    title: function(context) {
+                      // Tampilkan tanggal dan waktu lengkap
+                      const idx = context[0].dataIndex;
+                      const date = times[idx];
+                      return date.toLocaleString();
+                    },
+                    label: function(context) {
+                      return `Harga: $${context.parsed.y.toLocaleString()}`;
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  unit: xUnit,
+                  stepSize: xStepSize,
+                  type: 'time',
+                  time: {
+                    tooltipFormat: 'yyyy-MM-dd HH:mm',
+                    displayFormats: {
+                      minute: timeFormat,
+                      hour: timeFormat,
+                      day: timeFormat,
+                      week: timeFormat,
+                      month: timeFormat,
+                      year: timeFormat
+                    },
+                  },
+                  ticks: {
+                    color: "#94a3b8"
+                  },
+                  grid: { color: "#2a3153" }
+                },
+                y: {
+                  title: {
+                    display: true,
+                    text: 'Price (USD)',
+                    color: '#94a3b8',
+                    font: { size: 12, weight: 'bold' }
+                  },
+                  ticks: { callback: val => "$" + val.toLocaleString(), color: "#94a3b8" },
+                  grid: { color: "#2a3153" }
+                }
               }
             },
-            plugins: { legend: { display: false } }
-          }
-        });
+            plugins: [{
+              afterDraw: chart => {
+                // Geser chart ke kanan saat data bertambah
+                if (chart.data.labels.length > 0) {
+                  chart.chartArea.left = 0;
+                  chart.chartArea.right = chart.width;
+                }
+              }
+            }]
+          });
 
-        const last = data[data.length - 1];
-        ohlcInfo.innerHTML = `Price: $${last.close} | O: $${last.open} H: $${last.high} L: $${last.low} C: $${last.close}`;
-      } catch (err) {
-        console.error("Error loading Binance data:", err);
-      } finally {
-        spinner.classList.add("hidden");
-      }
-      return;
+          const last = data[data.length - 1];
+          ohlcInfo.innerHTML = `Price: $${last.close} | O: $${last.open} H: $${last.close} L: $${last.close} C: $${last.close}`;
+        } catch (err) {
+          console.error("Error loading Binance data:", err);
+        } finally {
+          spinner.classList.add("hidden");
+        }
+        return;
     }
 
 
@@ -349,58 +481,267 @@
   </script>
 
   <script>
-    const form = document.getElementById("chat-form");
-    const input = form.querySelector("input");
-    const chatBox = document.getElementById("chat-box");
+let currentChatId = null;
 
-    function appendMessage(sender, text) {
-      const msg = document.createElement("div");
-      msg.className = `p-2 rounded-md max-w-xs whitespace-pre-wrap ${sender === "user" ? "bg-[#334155] text-white self-end ml-auto" : "bg-[#2a3153] text-[#94a3b8] self-start"}`;
-      msg.textContent = text;
-      chatBox.appendChild(msg);
-      chatBox.scrollTop = chatBox.scrollHeight;
+async function loadChats(selectedId = null) {
+  const res = await fetch('/api/chats');
+  const chats = await res.json();
+  const chatSelect = document.getElementById('chat-select');
+  chatSelect.innerHTML = '';
+  chats.forEach(chat => {
+    const opt = document.createElement('option');
+    opt.value = chat.id;
+    opt.textContent = chat.title + ' (' + new Date(chat.created_at).toLocaleString() + ')';
+    chatSelect.appendChild(opt);
+  });
+  if (chats.length > 0) {
+    if (selectedId && chats.some(c => c.id == selectedId)) {
+      currentChatId = selectedId;
+    } else if (currentChatId && chats.some(c => c.id == currentChatId)) {
+      // keep currentChatId if still exists
+    } else {
+      currentChatId = chats[0].id;
     }
+    chatSelect.value = currentChatId;
+    loadChatMessages(currentChatId);
+  } else {
+    currentChatId = null;
+    document.getElementById('chat-box').innerHTML = '';
+  }
+}
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const message = input.value.trim();
-      if (!message) return;
+async function loadChatMessages(chatId) {
+  const res = await fetch(`/api/chats/${chatId}/messages`);
+  const messages = await res.json();
+  const chatBox = document.getElementById('chat-box');
+  chatBox.innerHTML = '';
+  messages.forEach(msg => {
+    appendMessage(msg.sender, msg.message);
+  });
+}
 
-      appendMessage("user", message);
-      input.value = "";
+document.getElementById('chat-select').addEventListener('change', function() {
+  currentChatId = this.value;
+  loadChatMessages(currentChatId);
+});
 
-      const loading = document.createElement("div");
-      loading.className = "text-[#64748b] italic text-xs self-start";
-      loading.textContent = "AI is typing...";
-      chatBox.appendChild(loading);
+document.getElementById('new-chat-btn').addEventListener('click', async function() {
+  const res = await fetch('/api/chats', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'New Chat ' + new Date().toLocaleTimeString() })
+  });
+  const chat = await res.json();
+  await loadChats(chat.id);
+  document.getElementById('chat-select').value = chat.id;
+  currentChatId = chat.id;
+  document.getElementById('chat-box').innerHTML = '';
+});
 
-      try {
-        const coin = document.getElementById("coinSelect").value;
-        const timeframe = currentDays;
-        const price = document.getElementById("currentPrice").textContent;
-        const ohlc = document.getElementById("ohlcInfo").textContent;
+function appendMessage(sender, text) {
+  const msg = document.createElement('div');
+  msg.className = `flex items-start gap-2 p-2 rounded-md max-w-xl whitespace-pre-wrap ${sender === "user" ? "bg-[#334155] text-white self-end ml-auto flex-row-reverse" : "bg-[#2a3153] text-[#94a3b8] self-start"}`;
+  // Profile image
+  const img = document.createElement('img');
+  img.className = "w-8 h-8 rounded-full object-cover shadow";
+  if (sender === "user") {
+    img.src = "/static/image/images.png";
+    img.alt = "User";
+  } else {
+    // Get selected AI model name and image
+    const aiModel = document.getElementById('ai-model').value;
+    let aiName = "AI";
+    let aiImg = "/static/image/images.png";
+    if (aiModel === "openai") {
+      aiName = "OpenAI";
+      aiImg = "/static/image/images.png";
+    } else if (aiModel === "mixtral") {
+      aiName = "Mixtral-8x7b";
+      aiImg = "/static/image/images.png";
+    } else if (aiModel === "groq") {
+      aiName = "Groq Cloud";
+      aiImg = "/static/image/images.png";
+    } else if (aiModel === "groq_vision") {
+      aiName = "Groq Vision";
+      aiImg = "/static/image/images.png";
+    }
+    img.src = aiImg;
+    img.alt = aiName;
+  }
+  // Name label
+  const nameDiv = document.createElement('div');
+  nameDiv.className = "text-xs font-bold mb-1";
+  nameDiv.textContent = sender === "user" ? "User" : (function(){
+    const aiModel = document.getElementById('ai-model').value;
+    if (aiModel === "openai") return "OpenAI";
+    if (aiModel === "mixtral") return "Mixtral-8x7b";
+    if (aiModel === "groq") return "Groq Cloud";
+    if (aiModel === "groq_vision") return "Groq Vision";
+    return "AI";
+  })();
+  // Message bubble
+  const bubble = document.createElement('div');
+  bubble.className = "flex flex-col";
+  bubble.appendChild(nameDiv);
+  const textDiv = document.createElement('div');
+  // Render bold for **text**
+  textDiv.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  bubble.appendChild(textDiv);
+  // Compose
+  msg.appendChild(img);
+  msg.appendChild(bubble);
+  document.getElementById('chat-box').appendChild(msg);
+  document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+}
 
-        const res = await fetch("/ask", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message,
-            context: {
-              coin,
-              timeframe,
-              price,
-              ohlc
-            }
-          })
-        });
-        const data = await res.json();
-        loading.remove();
-        appendMessage("ai", data.reply || "Sorry, no response.");
-      } catch (err) {
-        loading.remove();
-        appendMessage("ai", "Error: " + err.message);
+const form = document.getElementById("chat-form");
+const input = form.querySelector("input[type='text']");
+const aiModelSelect = document.getElementById("ai-model");
+const imageUpload = document.getElementById("image-upload");
+const uploadLabel = document.getElementById("upload-label");
+let imageBase64 = null;
+let imagePreviewUrl = null;
+
+aiModelSelect.addEventListener("change", function() {
+  if (this.value === "groq_vision") {
+    imageUpload.classList.remove("hidden");
+    uploadLabel.classList.remove("hidden");
+  } else {
+    imageUpload.classList.add("hidden");
+    uploadLabel.classList.add("hidden");
+    imageBase64 = null;
+    imagePreviewUrl = null;
+    imageUpload.value = "";
+  }
+});
+
+imageUpload.addEventListener("change", function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      imageBase64 = evt.target.result.split(",")[1];
+      imagePreviewUrl = evt.target.result;
+      // Show preview in chat as a bubble
+      appendImageMessage("user", imagePreviewUrl);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    imageBase64 = null;
+    imagePreviewUrl = null;
+  }
+});
+
+function appendImageMessage(sender, imgUrl) {
+  const msg = document.createElement('div');
+  msg.className = `flex items-start gap-2 p-2 rounded-md max-w-xl whitespace-pre-wrap ${sender === "user" ? "bg-[#334155] text-white self-end ml-auto flex-row-reverse" : "bg-[#2a3153] text-[#94a3b8] self-start"}`;
+  // Profile image
+  const imgProfile = document.createElement('img');
+  imgProfile.className = "w-8 h-8 rounded-full object-cover shadow";
+  if (sender === "user") {
+    imgProfile.src = "/static/image/user.png";
+    imgProfile.alt = "User";
+  } else {
+    const aiModel = document.getElementById('ai-model').value;
+    let aiName = "AI";
+    let aiImg = "/static/image/ai.png";
+    if (aiModel === "openai") aiImg = "/static/image/openai.png";
+    else if (aiModel === "mixtral") aiImg = "/static/image/mixtral.png";
+    else if (aiModel === "groq") aiImg = "/static/image/groq.png";
+    else if (aiModel === "groq_vision") aiImg = "/static/image/groq_vision.png";
+    imgProfile.src = aiImg;
+    imgProfile.alt = aiName;
+  }
+  // Name label
+  const nameDiv = document.createElement('div');
+  nameDiv.className = "text-xs font-bold mb-1";
+  nameDiv.textContent = sender === "user" ? "User" : (function(){
+    const aiModel = document.getElementById('ai-model').value;
+    if (aiModel === "openai") return "OpenAI";
+    if (aiModel === "mixtral") return "Mixtral-8x7b";
+    if (aiModel === "groq") return "Groq Cloud";
+    if (aiModel === "groq_vision") return "Groq Vision";
+    return "AI";
+  })();
+  // Image bubble
+  const bubble = document.createElement('div');
+  bubble.className = "flex flex-col";
+  bubble.appendChild(nameDiv);
+  const img = document.createElement('img');
+  img.src = imgUrl;
+  img.alt = "Preview";
+  img.className = "mt-2 rounded shadow max-w-xs";
+  bubble.appendChild(img);
+  msg.appendChild(imgProfile);
+  msg.appendChild(bubble);
+  document.getElementById('chat-box').appendChild(msg);
+  document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const message = input.value.trim();
+  if (!message) return;
+
+  appendMessage("user", message);
+  if (aiModelSelect.value === "groq_vision" && imagePreviewUrl) {
+    appendImageMessage("user", imagePreviewUrl);
+  }
+  input.value = "";
+
+  const loading = document.createElement("div");
+  loading.className = "text-[#64748b] italic text-xs self-start";
+  loading.textContent = "AI is typing...";
+  document.getElementById('chat-box').appendChild(loading);
+
+  try {
+    const coin = document.getElementById("coinSelect").value;
+    const timeframe = currentDays;
+    const price = document.getElementById("currentPrice").textContent;
+    const ohlc = document.getElementById("ohlcInfo").textContent;
+    const model = aiModelSelect.value;
+    let body = {
+      message,
+      model,
+      chat_id: currentChatId,
+      context: {
+        coin,
+        timeframe,
+        price,
+        ohlc
       }
+    };
+    if (model === "groq_vision" && imageBase64) {
+      body.image = imageBase64;
+    }
+    const res = await fetch("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
     });
+    const data = await res.json();
+    loading.remove();
+    appendMessage("ai", data.reply || "Sorry, no response.");
+    if (data.image_url) {
+      appendImageMessage("ai", data.image_url);
+    }
+    if (data.chat_id) {
+      currentChatId = data.chat_id;
+      await loadChats();
+      document.getElementById('chat-select').value = currentChatId;
+    }
+    // Reset image after submit
+    imageBase64 = null;
+    imagePreviewUrl = null;
+    imageUpload.value = "";
+  } catch (err) {
+    loading.remove();
+    appendMessage("ai", "Error: " + err.message);
+  }
+});
+
+// Initial load
+loadChats();
   </script>
 </body>
 </html>
